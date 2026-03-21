@@ -43,17 +43,15 @@ const CitasTab = () => {
     fetch(API_SERVICIOS).then(res => res.json()).then(setServicios);
   }, []);
 
-  const mascotasCliente = mascotas.filter(m => m.client_id === Number(formData.client_id));
+  const mascotasCliente = mascotas.filter(m => Number(m.client_id) === Number(formData.client_id));
 
   const esSabado = date => new Date(date + "T00:00").getDay() === 6;
 
   const generarHoras = () => {
     if (!formData.date) return [];
-
     const horas = [];
-    let inicio = esSabado(formData.date) ? 540 : 540;
+    let inicio = 540;
     let fin = esSabado(formData.date) ? 840 : 1200;
-
     while (inicio <= fin) {
       const h = String(Math.floor(inicio / 60)).padStart(2, "0");
       const m = String(inicio % 60).padStart(2, "0");
@@ -64,7 +62,6 @@ const CitasTab = () => {
   };
 
   const hoy = new Date().toLocaleDateString("en-CA");
-
   const max = (() => {
     const d = new Date();
     d.setMonth(d.getMonth() + 6);
@@ -84,12 +81,13 @@ const CitasTab = () => {
       return;
     }
 
-    if (new Date(formData.date + "T00:00").getDay() === 0) {
-      alert("Los domingos no están disponibles");
-      return;
-    }
-
-    const body = { ...formData };
+    const body = {
+      ...formData,
+      client_id: Number(formData.client_id),
+      pet_id: Number(formData.pet_id),
+      service_id: Number(formData.service_id),
+      employee_id: Number(formData.employee_id)
+    };
 
     let res;
     if (editing) {
@@ -99,7 +97,14 @@ const CitasTab = () => {
         body: JSON.stringify(body)
       });
       const updated = await res.json();
-      setCitas(citas.map(c => (c.id === editing.id ? updated : c)));
+      const formatted = {
+        ...updated,
+        client_id: Number(updated.client_id),
+        pet_id: Number(updated.pet_id),
+        service_id: Number(updated.service_id),
+        employee_id: Number(updated.employee_id)
+      };
+      setCitas(citas.map(c => (c.id === editing.id ? formatted : c)));
     } else {
       res = await fetch(API_CITAS, {
         method: "POST",
@@ -107,7 +112,14 @@ const CitasTab = () => {
         body: JSON.stringify(body)
       });
       const nueva = await res.json();
-      setCitas([...citas, nueva]);
+      const nuevaFormateada = {
+        ...nueva,
+        client_id: Number(nueva.client_id),
+        pet_id: Number(nueva.pet_id),
+        service_id: Number(nueva.service_id),
+        employee_id: Number(nueva.employee_id)
+      };
+      setCitas([...citas, nuevaFormateada]);
     }
 
     setFormData(initialForm);
@@ -121,10 +133,10 @@ const CitasTab = () => {
     setCitas(citas.filter(c => c.id !== id));
   };
 
-  const getCliente = id => clientes.find(c => c.id === id)?.name || "";
-  const getMascota = id => mascotas.find(m => m.id === id)?.name || "";
-  const getEmpleado = id => empleados.find(e => e.id === id)?.name || "";
-  const getServicio = id => servicios.find(s => s.id === id)?.name || "";
+  const getCliente = id => clientes.find(c => Number(c.id) === Number(id))?.name || "";
+  const getMascota = id => mascotas.find(m => Number(m.id) === Number(id))?.name || "";
+  const getEmpleado = id => empleados.find(e => Number(e.id) === Number(id))?.name || "";
+  const getServicio = id => servicios.find(s => Number(s.id) === Number(id))?.name || "";
 
   return (
     <div className="form-content flex flex-col gap-6">
@@ -140,14 +152,13 @@ const CitasTab = () => {
         <div className="bg-white border p-4 rounded-xl shadow w-full space-y-3">
           {citas.length ? citas.map(cita => (
             <div key={cita.id} className={`relative border p-4 rounded-xl shadow-sm flex justify-between items-center ${cita.alta ? "bg-gray-100 opacity-60" : ""}`}>
-              {cita.alta === 1 && <span className="absolute -top-2 -right-2 bg-black text-white text-xs font-bold px-3 py-1 rounded shadow">ATENDIDA</span>}
               <div>
                 <h3 className="font-semibold text-lg">{getCliente(cita.client_id)} — {getMascota(cita.pet_id)}</h3>
                 <p>Servicio: {getServicio(cita.service_id)}</p>
                 <p>Veterinario: {getEmpleado(cita.employee_id)}</p>
-                <p>Fecha: {cita.date}</p>
+                <p>Fecha: {cita.date?.split("T")[0]}</p>
                 <p>Hora: {cita.time}</p>
-                {cita.notes && <p>{cita.notes}</p>}
+                {cita.notes && <p className="text-sm text-gray-500 italic">{cita.notes}</p>}
               </div>
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" disabled={cita.alta} onClick={() => {
@@ -172,21 +183,11 @@ const CitasTab = () => {
               <div><Label>Mascota</Label><select disabled={reagendando} value={formData.pet_id} onChange={e => setFormData({ ...formData, pet_id: e.target.value })} required className="border p-2 rounded-md w-full"><option value="">Seleccionar mascota</option>{mascotasCliente.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></div>
               <div><Label>Servicio</Label><select disabled={reagendando} value={formData.service_id} onChange={e => setFormData({ ...formData, service_id: e.target.value })} required className="border p-2 rounded-md w-full"><option value="">Seleccionar servicio</option>{servicios.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
               <div><Label>Empleado</Label><select disabled={reagendando} value={formData.employee_id} onChange={e => setFormData({ ...formData, employee_id: e.target.value })} required className="border p-2 rounded-md w-full"><option value="">Seleccionar empleado</option>{empleados.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
-              <div><Label>Fecha</Label><Input type="date" min={hoy} max={max} onChange={e => {
-                const d = e.target.value;
-                if (new Date(d + "T00:00").getDay() === 0) {
-                  alert("Domingos no disponibles");
-                  return;
-                }
-                setFormData({ ...formData, date: d, time: "" });
-              }} value={formData.date} required /></div>
+              <div><Label>Fecha</Label><Input type="date" min={hoy} max={max} onChange={e => setFormData({ ...formData, date: e.target.value, time: "" })} value={formData.date} required /></div>
               <div><Label>Hora</Label><select value={formData.time} onChange={e => setFormData({ ...formData, time: e.target.value })} required className="border p-2 rounded-md w-full"><option value="">Seleccionar hora</option>{generarHoras().map(h => <option key={h} value={h}>{h}</option>)}</select></div>
             </div>
-
             <div><Label>Notas</Label><Input value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} /></div>
-
             {(editing || reagendando) && <div><Label>Motivo</Label><textarea className="border p-2 rounded-md w-full" rows="3" value={formData.motivo} onChange={e => setFormData({ ...formData, motivo: e.target.value })} /></div>}
-
             <div className="flex gap-2">
               <Button type="submit">{reagendando ? "Guardar" : "Crear Cita"}</Button>
               <Button variant="outline" type="button" onClick={() => { setEditing(null); setReagendando(false); setFormData(initialForm); setShowForm(false); }}>Cancelar</Button>
